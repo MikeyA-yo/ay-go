@@ -107,6 +107,9 @@ func Tokenize(line string) []Token {
 			currentToken += char
 		}
 		identTest := testRegex(`[a-zA-Z_@]`, char)
+		opTest := testRegex(`[+*/%=<>&|!?^-]`, char)
+		litTest := testRegex(`\d`, char)
+		punctTest := testRegex(`[(){}[\]:;,.]`, char)
 		if identTest && !sOpen && currentType != SingleLineComment {
 			if currentType == Identifier {
 				currentToken += char
@@ -138,10 +141,156 @@ func Tokenize(line string) []Token {
 					currentToken = ""
 				}
 			}
+		} else if opTest && !sOpen && currentType != SingleLineComment {
+			currentType = Operator
+			if len(currentToken) > 0 && testRegex(`[+*/%=<>&|!?-]`, currentToken) {
+				switch len(currentToken) {
+				case 1:
+					if currentToken != "/" && currentToken != "^" {
+						if currentToken == char {
+							currentToken += char
+						} else if char == "=" {
+							currentToken += char
+						} else {
+							tokens = append(tokens, Token{currentType, currentToken})
+							currentToken = char
+						}
+					} else {
+						currentType = SingleLineComment
+						currentToken += char
+					}
+				case 2:
+					if (currentToken == ">>" || currentToken == "<<") && (char == ">" || char == "<") {
+						currentToken += char
+					}
+				default:
+					currentType = Unkown
+					currentToken = char
+				}
+			} else {
+				currentToken = char
+			}
+			if len(lineArr)-1 >= i+1 && currentType != SingleLineComment {
+				if !testRegex(`[+*/%=<>&|!?-]`, string(line[i+1])) {
+					tokens = append(tokens, Token{currentType, currentToken})
+					currentToken = ""
+				}
+			}
+		} else if litTest && !sOpen && currentType != SingleLineComment {
+			currentType = Literal
+			if len(currentToken) > 0 && (testRegex(`\d`, currentToken) || string(currentToken[len(currentToken)-1]) == ".") {
+				currentToken += char
+			} else {
+				currentToken = char
+			}
+			if len(lineArr)-1 >= i+1 && currentType != SingleLineComment {
+				if !testRegex(`\d`, string(line[i+1])) && string(line[i+1]) != "." {
+					tokens = append(tokens, Token{currentType, currentToken})
+					currentToken = ""
+				}
+			}
+		} else if punctTest && !sOpen && currentType != SingleLineComment {
+			if currentType == Literal && char == "." && !strings.Contains(currentToken, ".") && len(currentToken) > 0 {
+				currentToken += char
+			} else {
+				currentType = Punctuation
+				currentToken = char
+				tokens = append(tokens, Token{currentType, currentToken})
+				currentToken = ""
+			}
 		}
 	}
 	if currentToken != "" {
 		tokens = append(tokens, Token{currentType, currentToken})
 	}
-	return tokens
+	var returnTokens []Token
+	for _, v := range tokens {
+		if v.Type != WhiteSpace {
+			returnTokens = append(returnTokens, v)
+		}
+	}
+	return returnTokens
+}
+
+type TokenGen struct {
+	lines          []string
+	currentLine    int
+	currentTokenNo int
+}
+
+func NewTokenGen(line string) *TokenGen {
+	var lines []string
+	if strings.Contains(line, "\r\n") {
+		lines = strings.Split(line, "\r\n")
+	} else {
+		lines = strings.Split(line, "\n")
+	}
+	return &TokenGen{lines: lines, currentLine: 0, currentTokenNo: 0}
+}
+func (t *TokenGen) Next() {
+	var currentLineToken = Tokenize(t.lines[t.currentLine])
+	if t.currentTokenNo < len(currentLineToken)-1 {
+		t.currentTokenNo++
+	} else {
+		if t.currentLine < len(t.lines)-1 {
+			t.currentTokenNo = 0
+			t.currentLine++
+		}
+	}
+}
+func (t *TokenGen) Back() {
+	if t.currentTokenNo != 0 {
+		t.currentTokenNo--
+	} else {
+		if t.currentLine != 0 {
+			t.currentLine--
+			currentLineToken := Tokenize(t.lines[t.currentLine])
+			t.currentTokenNo = len(currentLineToken)
+		}
+	}
+}
+
+func (t *TokenGen) Peek(steps int) Token {
+	var token Token
+	for i := 0; i < steps; i++ {
+		t.Next()
+	}
+	token = t.GetCurrentToken() // todo replace with getCurrentToken method
+	for i := 0; i < steps; i++ {
+		t.Back()
+	}
+	return token
+}
+
+func (t *TokenGen) Skip(steps int) Token {
+	var token Token
+	for i := 0; i < steps; i++ {
+		t.Next()
+	}
+	token = t.GetCurrentToken() // todo replace with getCurrentToken method
+	return token
+}
+func (t *TokenGen) GetCurrentToken() Token {
+	if t.currentLine >= len(t.lines) || t.currentLine < 0 {
+		return Token{}
+	}
+	return Tokenize(t.lines[t.currentLine])[t.currentTokenNo]
+}
+func (t *TokenGen) GetRemainingToken() []Token {
+	tokensLeft := Tokenize(t.lines[t.currentLine])[t.currentTokenNo+1:]
+	linesLeft := t.lines[t.currentLine+1:]
+	for i := 0; i < len(linesLeft); i++ {
+		lineTokens := Tokenize(linesLeft[i])
+		tokensLeft = slices.Concat(tokensLeft, lineTokens)
+	}
+	return tokensLeft
+}
+func (t *TokenGen) GetTokenLeftLine() []Token {
+	if t.currentLine >= len(t.lines) {
+		return []Token{}
+	}
+	return Tokenize(t.lines[t.currentLine])[t.currentTokenNo+1:]
+}
+func (t *TokenGen) GetFullLineToken() []Token {
+	return Tokenize(t.lines[t.currentLine])
 }
