@@ -130,7 +130,7 @@ func (p *Parser) ParseBinaryExpr() ASTNode {
 	return ASTNode{Type: BinaryExpression, Left: left, Operator: operator, Right: rightS}
 }
 
-func (p *Parser) ParseNotExpr() ASTNode {
+func (p *Parser) ParseNotnMinusExpr() ASTNode {
 	initializer := p.Consume().Value
 	if len(p.Tokenizer.GetTokenLeftLine()) > 1 {
 		// todo
@@ -138,4 +138,79 @@ func (p *Parser) ParseNotExpr() ASTNode {
 		initializer += p.Consume().Value
 	}
 	return ASTNode{Type: NotExpression, Value: initializer}
+}
+func (p *Parser) ParseVarDecl() ASTNode {
+	p.Tokenizer.Next()
+	identifier := ""
+	initializer := ASTNode{}
+	if p.Tokenizer.GetCurrentToken().Type == Identifier {
+		identifier = p.Consume().Value
+		if len(p.Tokenizer.GetTokenLeftLine()) == 0 {
+			return ASTNode{Type: VariableDeclaration, Identifier: identifier}
+		}
+		if p.Tokenizer.GetCurrentToken().Value == "=" {
+			p.Consume()
+			leftTokens := p.Tokenizer.GetTokenLeftLine()
+			switch p.Tokenizer.GetCurrentToken().Type {
+			case Identifier:
+				if len(leftTokens) == 0 {
+					initializer = p.ParseLiteral()
+				} else {
+					initializer = p.ParseBinaryExpr()
+				}
+			case Literal:
+				if len(leftTokens) == 0 {
+					initializer = p.ParseLiteral()
+				} else {
+					initializer = p.ParseBinaryExpr()
+				}
+			case StringLiteral:
+				if len(leftTokens) == 0 {
+					initializer = p.ParseLiteral()
+				} else {
+					initializer = p.ParseBinaryExpr()
+				}
+			case Punctuation:
+				//todo
+				initializer = ASTNode{Type: Punctuation, Value: p.GroupBy(p.Tokenizer.GetCurrentToken().Value)}
+			case Operator:
+				if p.Tokenizer.GetCurrentToken().Value == "!" || p.Tokenizer.GetCurrentToken().Value == "-" {
+					initializer = p.ParseNotnMinusExpr()
+				} else {
+					// likely an error but i'm getting ideas to do something with my syntax
+				}
+			default:
+				// errorrrr damn i need an error variable, like a slice or smth
+			}
+		} else {
+			// error
+		}
+	} else {
+		// error
+	}
+	return ASTNode{
+		Type:        VariableDeclaration,
+		Identifier:  identifier,
+		Initializer: &initializer,
+	}
+}
+func (p *Parser) CheckAndParse() {
+	baseToken := p.Tokenizer.GetCurrentToken()
+	switch baseToken.Type {
+	case Keyword:
+		switch baseToken.Value {
+		case "l":
+			node := p.ParseVarDecl()
+			p.Nodes = append(p.Nodes, node)
+		default:
+			//todo
+		}
+	default:
+		//todo
+	}
+}
+func (p *Parser) Start() {
+	for i := 0; i < len(p.Tokenizer.lines); i++ {
+		p.CheckAndParse()
+	}
 }
