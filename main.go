@@ -10,5 +10,7 @@ func main() {
 	fmt.Println(tg.GetCurrentToken())
 	tg.Next()
 	fmt.Println(tg.GetCurrentToken())
+	// pp := parser.NewParser("{buu, bb}")
+	// fmt.Println(pp.GroupBy("{"))
 	fmt.Println(tg.Peek(4))
 }
