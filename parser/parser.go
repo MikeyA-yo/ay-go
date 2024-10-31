@@ -16,18 +16,18 @@ const (
 	BlockStmt
 )
 
-type left struct {
-	Type string
-	Name string
+type pNode struct {
+	Type  int
+	Value string
 }
 
-type right struct {
-	Type     string
-	Name     string
-	Operator string
-	Left     left
-	Right    *right
-}
+// type right struct {
+// 	Type     int
+// 	Value     string
+// 	Operator string
+// 	Left     left
+// 	Right    *right
+// }
 type ASTNode struct {
 	Type        int
 	Name        string
@@ -37,10 +37,10 @@ type ASTNode struct {
 	Initializer *ASTNode
 	DataType    string
 	Operator    string
-	Left        left
-	Right       right
+	Left        *ASTNode
+	Right       *ASTNode
 	Body        *ASTNode
-	Params      []left
+	Params      []pNode
 	Test        *ASTNode
 	Consequent  *ASTNode
 	Alternate   *ASTNode
@@ -97,4 +97,45 @@ func (p *Parser) GroupBy(group string) string {
 }
 func (p *Parser) ParseLiteral() ASTNode {
 	return ASTNode{Type: LiteralD, Value: p.Consume().Value}
+}
+
+func (p *Parser) ParseBinaryExpr() ASTNode {
+	operator := ""
+	left := &ASTNode{Type: p.Tokenizer.GetCurrentToken().Type, Value: p.Tokenizer.GetCurrentToken().Value}
+	rightS := &ASTNode{}
+
+	p.Consume()
+	if len(p.Tokenizer.GetTokenLeftLine()) != 0 {
+		switch p.Tokenizer.GetCurrentToken().Type {
+		case Operator:
+			switch p.Tokenizer.GetCurrentToken().Value {
+			case "+", "-", "*", "/":
+				operator = p.Consume().Value
+				token := p.Tokenizer.GetTokenLeftLine()
+				if len(token) > 1 {
+					val := p.ParseBinaryExpr()
+					rightS = &val
+				} else {
+					val := p.Consume()
+					rightS = &ASTNode{Type: val.Type, Value: val.Value}
+				}
+			default:
+				//an error
+			}
+		default:
+			//another error
+		}
+	}
+
+	return ASTNode{Type: BinaryExpression, Left: left, Operator: operator, Right: rightS}
+}
+
+func (p *Parser) ParseNotExpr() ASTNode {
+	initializer := p.Consume().Value
+	if len(p.Tokenizer.GetTokenLeftLine()) > 1 {
+		// todo
+	} else {
+		initializer += p.Consume().Value
+	}
+	return ASTNode{Type: NotExpression, Value: initializer}
 }
