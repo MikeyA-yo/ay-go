@@ -1,6 +1,8 @@
 package parser
 
-import "log"
+import (
+	"log"
+)
 
 const (
 	Program int = 0 + iota
@@ -21,13 +23,13 @@ type pNode struct {
 	Value string
 }
 
-// type right struct {
-// 	Type     int
-// 	Value     string
-// 	Operator string
-// 	Left     left
-// 	Right    *right
-// }
+//	type right struct {
+//		Type     int
+//		Value     string
+//		Operator string
+//		Left     left
+//		Right    *right
+//	}
 type ASTNode struct {
 	Type        int
 	Name        string
