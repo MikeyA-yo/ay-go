@@ -95,3 +95,6 @@ func (p *Parser) GroupBy(group string) string {
 	p.Consume()
 	return mGroup + closingChar
 }
+func (p *Parser) ParseLiteral() ASTNode {
+	return ASTNode{Type: LiteralD, Value: p.Consume().Value}
+}
