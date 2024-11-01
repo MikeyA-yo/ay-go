@@ -11,7 +11,7 @@ func main() {
 	fmt.Println(tg.GetCurrentToken())
 	tg.Next()
 	fmt.Println(tg.GetCurrentToken())
-	pp := parser.NewParser("l b = 12+2\nl a = 'Heyy'")
+	pp := parser.NewParser("l b = 12-2\nl a = 'Heyy', ' yo'")
 	pp.Start()
 	for _, v := range pp.Nodes {
 		PrintNonNilFields(v.Initializer)

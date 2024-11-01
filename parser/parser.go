@@ -23,13 +23,6 @@ type pNode struct {
 	Value string
 }
 
-//	type right struct {
-//		Type     int
-//		Value     string
-//		Operator string
-//		Left     left
-//		Right    *right
-//	}
 type ASTNode struct {
 	Type        int
 	Name        string
@@ -106,26 +99,44 @@ func (p *Parser) ParseBinaryExpr() ASTNode {
 	left := &ASTNode{Type: p.Tokenizer.GetCurrentToken().Type, Value: p.Tokenizer.GetCurrentToken().Value}
 	rightS := &ASTNode{}
 
-	p.Consume()
+	t := p.Consume().Type
 	if len(p.Tokenizer.GetTokenLeftLine()) != 0 {
-		switch p.Tokenizer.GetCurrentToken().Type {
-		case Operator:
-			switch p.Tokenizer.GetCurrentToken().Value {
-			case "+", "-", "*", "/":
-				operator = p.Consume().Value
-				token := p.Tokenizer.GetTokenLeftLine()
-				if len(token) > 1 {
+		switch t {
+		case Literal:
+			switch p.Tokenizer.GetCurrentToken().Type {
+			case Operator:
+				switch p.Tokenizer.GetCurrentToken().Value {
+				case "+", "-", "*", "/":
+					operator = p.Consume().Value
+					token := p.Tokenizer.GetTokenLeftLine()
+					if len(token) > 1 {
+						val := p.ParseBinaryExpr()
+						rightS = &val
+					} else {
+						val := p.Consume()
+						rightS = &ASTNode{Type: val.Type, Value: val.Value}
+					}
+				default:
+					//an error
+				}
+			default:
+				//another error
+			}
+		case StringLiteral:
+			if p.Tokenizer.GetCurrentToken().Value == "+" || p.Tokenizer.GetCurrentToken().Value == "," {
+				operator = "+"
+				p.Consume()
+				tns := p.Tokenizer.GetTokenLeftLine()
+				if len(tns) > 1 {
 					val := p.ParseBinaryExpr()
 					rightS = &val
 				} else {
 					val := p.Consume()
 					rightS = &ASTNode{Type: val.Type, Value: val.Value}
 				}
-			default:
-				//an error
+			} else {
+				// error, to check defineds tho later on
 			}
-		default:
-			//another error
 		}
 	}
 
