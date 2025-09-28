@@ -105,7 +105,63 @@ func Tokenize(line string) []Token {
 			continue
 
 		}
+		if char == "*" && nextChar == "/" && currentType == MultiLineComment && !sOpen {
+			currentToken += "*/"
+			tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+			i++
+			currentToken = ""
+			currentType = Identifier
+			continue
+		}
+
+		// New lines
+		if (char == "\r" && nextChar == "\n") && currentType != MultiLineComment {
+			if currentType == SingleLineComment {
+				tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+			}
+			tokens = append(tokens, Token{NewLine, "\r\n", 0, 0})
+			i++
+			currentToken = ""
+			currentType = Identifier
+			continue
+		} else if char == "\n" && currentType != MultiLineComment {
+			if currentType == SingleLineComment {
+				tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+			}
+			tokens = append(tokens, Token{NewLine, "\n", 0, 0})
+			currentToken = ""
+			currentType = Identifier
+			continue
+		}
+
+		// this checks if it's a string quote character, controls the value of sOpen
+		// notice how we also make sure we are not in a comment by checking the type
+		if (char == string('"') || char == "'") && currentType != SingleLineComment && currentType != MultiLineComment {
+			qChar = char
+			if sOpen {
+				if string(currentToken[0]) == qChar {
+					currentToken += qChar
+					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					// cleanup
+					currentToken = ""
+					sOpen = false
+					currentType = Identifier
+				}
+			} else {
+				sOpen = true
+				currentToken = qChar
+			}
+		}
+
+		// keep adding every character as a comment, but since we only expect a line this is fine as it continues to the end of the line
+		//keep adding string characters until sOpen is false, i.e it's closed with the ending quotechar
+		if sOpen || currentType == SingleLineComment || currentType == MultiLineComment {
+			currentToken += char
+			continue
+		}
 	}
+
+	return tokens
 }
 
 type TokenGen struct {
