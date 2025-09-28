@@ -9,7 +9,7 @@ import (
 
 var Keywords = []string{
 	"l",
-	"define",
+	"def",
 	"f",
 	"defer",
 	"for",
@@ -47,21 +47,32 @@ var Keywords = []string{
 	"yield",
 }
 
+var allowedKeysAsVal = []string{"true", "false", "null", "f", "new"}
+
+func isAllowedKeyAsVal(key string) bool {
+	return slices.Contains(allowedKeysAsVal, key)
+}
+
 const (
 	Identifier int = 0 + iota
 	Operator
 	Keyword
 	Literal
 	StringLiteral
-	WhiteSpace
+	Whitespace
 	Punctuation
 	SingleLineComment
-	Unkown
+	MultiLineComment
+	NewLine
+	EOF
+	Unknown
 )
 
 type Token struct {
 	Type  int
 	Value string
+	Line  int
+	Col   int
 }
 
 func isKeyword(key string) bool {
@@ -78,138 +89,23 @@ func testRegex(p, s string) bool {
 }
 func Tokenize(line string) []Token {
 	var tokens []Token
-	//keeps track of current token and type
-	currentToken := ""
-	currentType := Identifier
-	//keeps track of whether a string is open or not
-	qChar := ""
-	sOpen := false
-	lineArr := strings.Split(line, "")
-	for i := 0; i < len(lineArr); i++ {
+	var currentToken string
+	var currentType int
+	var sOpen bool
+	var qChar string
+
+	for i := 0; i < len(line); i++ {
 		char := string(line[i])
-		if (char == string('"') || char == "'") && currentType != SingleLineComment {
-			qChar = char
-			if sOpen {
-				if string(currentToken[0]) == qChar {
-					currentToken += qChar
-					tokens = append(tokens, Token{currentType, currentToken})
-					// cleanup
-					currentToken = ""
-					sOpen = false
-				}
-				// we know it's the start of a new string not end
-			} else {
-				currentType = StringLiteral
-				sOpen = true
-			}
-		}
-		if sOpen || currentType == SingleLineComment {
-			currentToken += char
-		}
-		identTest := testRegex(`[a-zA-Z_@]`, char)
-		opTest := testRegex(`[+*/%=<>&|!?^-]`, char)
-		litTest := testRegex(`\d`, char)
-		punctTest := testRegex(`[(){}[\]:;,.]`, char)
-		if identTest && !sOpen && currentType != SingleLineComment {
-			if currentType == Identifier {
-				currentToken += char
-			} else {
-				currentType = Identifier
-				currentToken = char
-			}
-			if len(lineArr)-1 >= i+1 {
-				if !testRegex(`[a-zA-Z_@]`, string(lineArr[i+1])) {
-					if isKeyword(currentToken) {
-						tokens = append(tokens, Token{Keyword, currentToken})
-						currentToken = ""
-					} else {
-						tokens = append(tokens, Token{currentType, currentToken})
-						currentToken = ""
-					}
-				}
-			}
-		} else if testRegex(`\s`, char) && !sOpen && currentType != SingleLineComment {
-			currentType = WhiteSpace
-			if len(currentToken) > 0 && testRegex(`\s`, currentToken) {
-				currentToken += char
-			} else {
-				currentToken = char
-			}
-			if len(lineArr)-1 >= i+1 {
-				if !testRegex(`\s`, string(lineArr[i+1])) {
-					tokens = append(tokens, Token{currentType, currentToken})
-					currentToken = ""
-				}
-			}
-		} else if opTest && !sOpen && currentType != SingleLineComment {
-			currentType = Operator
-			if len(currentToken) > 0 && testRegex(`[+*/%=<>&|!?-]`, currentToken) {
-				switch len(currentToken) {
-				case 1:
-					if currentToken != "/" && currentToken != "^" {
-						if currentToken == char {
-							currentToken += char
-						} else if char == "=" {
-							currentToken += char
-						} else {
-							tokens = append(tokens, Token{currentType, currentToken})
-							currentToken = char
-						}
-					} else {
-						currentType = SingleLineComment
-						currentToken += char
-					}
-				case 2:
-					if (currentToken == ">>" || currentToken == "<<") && (char == ">" || char == "<") {
-						currentToken += char
-					}
-				default:
-					currentType = Unkown
-					currentToken = char
-				}
-			} else {
-				currentToken = char
-			}
-			if len(lineArr)-1 >= i+1 && currentType != SingleLineComment {
-				if !testRegex(`[+*/%=<>&|!?-]`, string(line[i+1])) {
-					tokens = append(tokens, Token{currentType, currentToken})
-					currentToken = ""
-				}
-			}
-		} else if litTest && !sOpen && currentType != SingleLineComment {
-			currentType = Literal
-			if len(currentToken) > 0 && (testRegex(`\d`, currentToken) || string(currentToken[len(currentToken)-1]) == ".") {
-				currentToken += char
-			} else {
-				currentToken = char
-			}
-			if len(lineArr)-1 >= i+1 && currentType != SingleLineComment {
-				if !testRegex(`\d`, string(line[i+1])) && string(line[i+1]) != "." {
-					tokens = append(tokens, Token{currentType, currentToken})
-					currentToken = ""
-				}
-			}
-		} else if punctTest && !sOpen && currentType != SingleLineComment {
-			if currentType == Literal && char == "." && !strings.Contains(currentToken, ".") && len(currentToken) > 0 {
-				currentToken += char
-			} else {
-				currentType = Punctuation
-				currentToken = char
-				tokens = append(tokens, Token{currentType, currentToken})
-				currentToken = ""
-			}
+		nextChar := string(line[i+1])
+
+		// multi line comment start
+		if char == "/" && nextChar == "*" && currentType != SingleLineComment && !sOpen {
+			currentType = MultiLineComment
+			currentToken = "/*"
+			continue
+
 		}
 	}
-	if currentToken != "" {
-		tokens = append(tokens, Token{currentType, currentToken})
-	}
-	var returnTokens []Token
-	for _, v := range tokens {
-		if v.Type != WhiteSpace {
-			returnTokens = append(returnTokens, v)
-		}
-	}
-	return returnTokens
 }
 
 type TokenGen struct {

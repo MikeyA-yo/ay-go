@@ -1,9 +1,10 @@
 package main
 
 import (
-	"ay/parser"
 	"fmt"
 	"reflect"
+
+	"github.com/MikeyA-yo/ay-go/parser"
 )
 
 func main() {
