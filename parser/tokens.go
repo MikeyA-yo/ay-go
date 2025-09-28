@@ -363,24 +363,59 @@ func (t *TokenGen) Skip(steps int) Token {
 	}
 	return t.GetCurrentToken()
 }
+
+// Get current token
 func (t *TokenGen) GetCurrentToken() Token {
 	return t.Tokens[t.CurrentTokenNo]
 }
+
+// GetCurrentLineNumber returns the current line number (1-based index)
+func (t *TokenGen) GetCurrentLineNumber() int {
+	return t.Tokens[t.CurrentTokenNo].Line + 1
+}
+
+// GetCurrentColNumber returns the current column number (1-based index)
+func (t *TokenGen) GetCurrentColNumber() int {
+	return t.Tokens[t.CurrentTokenNo].Col + 1
+}
+
+// GetRemainingToken returns all tokens from the current position to the end
 func (t *TokenGen) GetRemainingToken() []Token {
-	tokensLeft := Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo+1:]
-	linesLeft := t.Lines[t.CurrentLine+1:]
-	for i := 0; i < len(linesLeft); i++ {
-		lineTokens := Tokenize(linesLeft[i])
-		tokensLeft = slices.Concat(tokensLeft, lineTokens)
-	}
-	return tokensLeft
+	return t.Tokens[t.CurrentTokenNo+1:]
 }
+
+// GetTokenLeftLine returns all tokens left in the current line from the current position
 func (t *TokenGen) GetTokenLeftLine() []Token {
-	if t.CurrentLine >= len(t.Lines) {
-		return []Token{}
+	tokenLeft := t.GetRemainingToken()
+	leftLineTokens := []Token{}
+	for _, v := range tokenLeft {
+		if v.Type == NewLine {
+			leftLineTokens = append(leftLineTokens, v)
+			break
+		}
+		leftLineTokens = append(leftLineTokens, v)
 	}
-	return Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo+1:]
+	return leftLineTokens
 }
+
+// GetFullLineToken returns all tokens in the current line
 func (t *TokenGen) GetFullLineToken() []Token {
-	return Tokenize(t.Lines[t.CurrentLine])
+	flToken := []Token{}
+	for _, v := range t.Tokens {
+		if v.Type == NewLine {
+			break
+		}
+		flToken = append(flToken, v)
+	}
+	slices.Reverse(flToken)
+	return flToken
+}
+
+func (t *TokenGen) ToNewLine() {
+	for t.Tokens[t.CurrentTokenNo].Type != NewLine && t.Tokens[t.CurrentTokenNo].Type != EOF {
+		t.CurrentTokenNo++
+	}
+	if t.Tokens[t.CurrentTokenNo].Type == NewLine {
+		t.CurrentTokenNo++
+	}
 }
