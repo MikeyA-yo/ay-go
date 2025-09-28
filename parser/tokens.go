@@ -320,39 +320,41 @@ func Tokenize(line string) []Token {
 }
 
 type TokenGen struct {
-	lines          []string
-	currentLine    int
-	currentTokenNo int
+	Lines          []string
+	CurrentLine    int
+	CurrentTokenNo int
+	Tokens         []Token
 }
 
-func NewTokenGen(line string) *TokenGen {
+// NewTokenGen creates a new TokenGen instance and tokenizes the input file into lines and tokens.
+func NewTokenGen(file string) *TokenGen {
 	var lines []string
-	if strings.Contains(line, "\r\n") {
-		lines = strings.Split(line, "\r\n")
+	if strings.Contains(file, "\r\n") {
+		lines = strings.Split(file, "\r\n")
 	} else {
-		lines = strings.Split(line, "\n")
+		lines = strings.Split(file, "\n")
 	}
-	return &TokenGen{lines: lines, currentLine: 0, currentTokenNo: 0}
+	return &TokenGen{Lines: lines, CurrentLine: 0, CurrentTokenNo: 0, Tokens: Tokenize(file)}
 }
 func (t *TokenGen) Next() {
-	var currentLineToken = Tokenize(t.lines[t.currentLine])
-	if t.currentTokenNo < len(currentLineToken)-1 {
-		t.currentTokenNo++
+	var currentLineToken = Tokenize(t.Lines[t.CurrentLine])
+	if t.CurrentTokenNo < len(currentLineToken)-1 {
+		t.CurrentTokenNo++
 	} else {
-		if t.currentLine < len(t.lines)-1 {
-			t.currentTokenNo = 0
-			t.currentLine++
+		if t.CurrentLine < len(t.Lines)-1 {
+			t.CurrentTokenNo = 0
+			t.CurrentLine++
 		}
 	}
 }
 func (t *TokenGen) Back() {
-	if t.currentTokenNo != 0 {
-		t.currentTokenNo--
+	if t.CurrentTokenNo != 0 {
+		t.CurrentTokenNo--
 	} else {
-		if t.currentLine != 0 {
-			t.currentLine--
-			currentLineToken := Tokenize(t.lines[t.currentLine])
-			t.currentTokenNo = len(currentLineToken)
+		if t.CurrentLine != 0 {
+			t.CurrentLine--
+			currentLineToken := Tokenize(t.Lines[t.CurrentLine])
+			t.CurrentTokenNo = len(currentLineToken)
 		}
 	}
 }
@@ -378,14 +380,14 @@ func (t *TokenGen) Skip(steps int) Token {
 	return token
 }
 func (t *TokenGen) GetCurrentToken() Token {
-	if t.currentLine >= len(t.lines) || t.currentLine < 0 {
+	if t.CurrentLine >= len(t.Lines) || t.CurrentLine < 0 {
 		return Token{}
 	}
-	return Tokenize(t.lines[t.currentLine])[t.currentTokenNo]
+	return Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo]
 }
 func (t *TokenGen) GetRemainingToken() []Token {
-	tokensLeft := Tokenize(t.lines[t.currentLine])[t.currentTokenNo+1:]
-	linesLeft := t.lines[t.currentLine+1:]
+	tokensLeft := Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo+1:]
+	linesLeft := t.Lines[t.CurrentLine+1:]
 	for i := 0; i < len(linesLeft); i++ {
 		lineTokens := Tokenize(linesLeft[i])
 		tokensLeft = slices.Concat(tokensLeft, lineTokens)
@@ -393,11 +395,11 @@ func (t *TokenGen) GetRemainingToken() []Token {
 	return tokensLeft
 }
 func (t *TokenGen) GetTokenLeftLine() []Token {
-	if t.currentLine >= len(t.lines) {
+	if t.CurrentLine >= len(t.Lines) {
 		return []Token{}
 	}
-	return Tokenize(t.lines[t.currentLine])[t.currentTokenNo+1:]
+	return Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo+1:]
 }
 func (t *TokenGen) GetFullLineToken() []Token {
-	return Tokenize(t.lines[t.currentLine])
+	return Tokenize(t.Lines[t.CurrentLine])
 }
