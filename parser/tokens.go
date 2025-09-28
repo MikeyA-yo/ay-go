@@ -285,7 +285,29 @@ func Tokenize(line string) []Token {
 
 	// Add EOF token
 	tokens = append(tokens, Token{EOF, "", 0, 0})
+	lineNo, colNo := 1, 1
+	strSplit := regexp.MustCompile(`\r\n|\n`)
+	for _, token := range tokens {
+		token.Line = lineNo
+		token.Col = colNo
 
+		// Handle multi-line comments and strings that contain newlines
+		if strings.Contains(token.Value, "\n") || strings.Contains(token.Value, "\r\n") {
+			lines := strSplit.Split(token.Value, -1)
+
+			lineNo += len(lines) - 1
+			if len(lines) > 1 {
+				colNo = len(lines[len(lines)-1]) + 1
+			} else {
+				colNo += len(lines[0])
+			}
+		} else if token.Type == NewLine {
+			lineNo++
+			colNo = 1
+		} else {
+			colNo += len(token.Value)
+		}
+	}
 	// Filter out whitespace and comment tokens
 	var filteredTokens []Token
 	for _, token := range tokens {
