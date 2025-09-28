@@ -47,9 +47,8 @@ var Keywords = []string{
 	"yield",
 }
 
-var allowedKeysAsVal = []string{"true", "false", "null", "f", "new"}
-
-func isAllowedKeyAsVal(key string) bool {
+func IsAllowedKeyAsVal(key string) bool {
+	var allowedKeysAsVal = []string{"true", "false", "null", "f", "new"}
 	return slices.Contains(allowedKeysAsVal, key)
 }
 
@@ -159,9 +158,143 @@ func Tokenize(line string) []Token {
 			currentToken += char
 			continue
 		}
+
+		identTest := testRegex(`[a-zA-Z_@]`, char)
+		opTest := testRegex(`[+*/%=<>&|!?^-]`, char)
+		litTest := testRegex(`\d`, char)
+		punctTest := testRegex(`[(){}[\]:;,.]`, char)
+
+		if identTest && !sOpen && currentType != SingleLineComment && currentType != MultiLineComment {
+			if currentType == Identifier {
+				currentToken += char
+			} else {
+				currentType = Identifier
+				currentToken = char
+			}
+			//checks if it's the last character or not, passes if not last char
+			if len(line)-1 >= i+1 {
+				if !testRegex(`[a-zA-Z_@0-9]`, string(line[i+1])) {
+					if isKeyword(currentToken) {
+						tokens = append(tokens, Token{Keyword, currentToken, 0, 0})
+						currentToken = ""
+					} else {
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = ""
+					}
+				}
+			}
+		} else if testRegex(`\s`, char) && !sOpen && currentType != SingleLineComment && currentType != MultiLineComment {
+			currentType = Whitespace
+			if len(currentToken) > 0 && testRegex(`\s`, currentToken) {
+				currentToken += char
+			} else {
+				currentToken = char
+			}
+
+			if len(line)-1 >= i+1 {
+				if !testRegex(`\s`, string(line[i+1])) {
+					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					currentToken = ""
+				}
+			}
+		} else if opTest && !sOpen && currentType != SingleLineComment && currentType != MultiLineComment {
+			currentType = Operator
+			if len(currentToken) > 0 && testRegex(`[+*/%=<>&|!?^-]`, currentToken) {
+				switch len(currentToken) {
+				case 1:
+					if currentToken == "/" && char == "/" {
+						// This is a single line comment //
+						currentType = SingleLineComment
+						currentToken += char
+					} else if (currentToken == "=" && char == "=") || (currentToken == "!" && char == "=") ||
+						(currentToken == "<" && char == "=") || (currentToken == ">" && char == "=") ||
+						(currentToken == "&" && char == "&") || (currentToken == "|" && char == "|") ||
+						(currentToken == "+" && char == "+") || (currentToken == "-" && char == "-") {
+						currentToken += char
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = ""
+					} else {
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = char
+					}
+				case 2:
+					if (currentToken == ">>" || currentToken == "<<") && (char == ">" || char == "<") {
+						currentToken += char
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					}
+				default:
+					tokens = append(tokens, Token{Unknown, currentToken, 0, 0})
+					currentToken = char
+				}
+			} else {
+				currentToken = char
+			}
+
+			if len(line)-1 >= i+1 && currentType != SingleLineComment && currentType != MultiLineComment {
+				if !testRegex(`[+*/%=<>&|!?^-]`, string(line[i+1])) {
+					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					currentToken = ""
+				}
+			}
+		} else if litTest && !sOpen && currentType != SingleLineComment && currentType != MultiLineComment {
+			// If we're already building an identifier, add the digit to it
+			if currentType == Identifier {
+				currentToken += char
+				// check if next char would end the identifier
+				if len(line)-1 >= i+1 {
+					if !testRegex(`[a-zA-Z_@0-9]`, nextChar) {
+						tokens = append(tokens, Token{Identifier, currentToken, 0, 0})
+						currentToken = ""
+					}
+				}
+			} else {
+				currentType = Literal
+				if len(currentToken) > 0 && (testRegex(`\d`, currentToken) || strings.HasSuffix(currentToken, ".")) {
+					if testRegex(`\d`, currentToken) || strings.HasSuffix(currentToken, ".") {
+						currentToken += char
+					}
+				} else {
+					currentToken = char
+				}
+				if len(line)-1 >= i+1 {
+					if !testRegex(`\d`, nextChar) && nextChar != "." {
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = ""
+					}
+				}
+			}
+		} else if punctTest && !sOpen && currentType != SingleLineComment && currentType != MultiLineComment {
+			if currentType == Literal && char == "." && !strings.Contains(currentToken, ".") && len(currentToken) > 0 {
+				currentToken += char
+			} else {
+				currentType = Punctuation
+				currentToken = char
+				tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+				currentToken = ""
+			}
+		}
 	}
 
-	return tokens
+	// Handle any remaining token at the end
+	if currentToken != "" {
+		if currentType == Identifier && isKeyword(currentToken) {
+			currentType = Keyword
+		}
+		tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+	}
+
+	// Add EOF token
+	tokens = append(tokens, Token{EOF, "", 0, 0})
+
+	// Filter out whitespace and comment tokens
+	var filteredTokens []Token
+	for _, token := range tokens {
+		if token.Type != Whitespace && token.Type != SingleLineComment && token.Type != MultiLineComment {
+			filteredTokens = append(filteredTokens, token)
+		}
+	}
+
+	return filteredTokens
 }
 
 type TokenGen struct {
