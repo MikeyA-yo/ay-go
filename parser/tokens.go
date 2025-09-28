@@ -337,38 +337,22 @@ func NewTokenGen(file string) *TokenGen {
 	return &TokenGen{Lines: lines, CurrentLine: 0, CurrentTokenNo: 0, Tokens: Tokenize(file)}
 }
 func (t *TokenGen) Next() {
-	var currentLineToken = Tokenize(t.Lines[t.CurrentLine])
-	if t.CurrentTokenNo < len(currentLineToken)-1 {
+	if t.Tokens[t.CurrentTokenNo].Type != EOF {
 		t.CurrentTokenNo++
-	} else {
-		if t.CurrentLine < len(t.Lines)-1 {
-			t.CurrentTokenNo = 0
-			t.CurrentLine++
-		}
 	}
 }
 func (t *TokenGen) Back() {
 	if t.CurrentTokenNo != 0 {
 		t.CurrentTokenNo--
-	} else {
-		if t.CurrentLine != 0 {
-			t.CurrentLine--
-			currentLineToken := Tokenize(t.Lines[t.CurrentLine])
-			t.CurrentTokenNo = len(currentLineToken)
-		}
 	}
 }
 
 func (t *TokenGen) Peek(steps int) Token {
-	var token Token
-	for i := 0; i < steps; i++ {
-		t.Next()
+	if steps != 0 && (steps+1+t.CurrentTokenNo) < len(t.Tokens) {
+		return t.Tokens[t.CurrentTokenNo+steps+1]
+	} else {
+		return t.Tokens[t.CurrentTokenNo+1]
 	}
-	token = t.GetCurrentToken() // todo replace with getCurrentToken method
-	for i := 0; i < steps; i++ {
-		t.Back()
-	}
-	return token
 }
 
 func (t *TokenGen) Skip(steps int) Token {
