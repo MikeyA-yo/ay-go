@@ -356,18 +356,15 @@ func (t *TokenGen) Peek(steps int) Token {
 }
 
 func (t *TokenGen) Skip(steps int) Token {
-	var token Token
-	for i := 0; i < steps; i++ {
-		t.Next()
+	if steps != 0 && (steps+t.CurrentTokenNo) < len(t.Tokens) {
+		t.CurrentTokenNo += steps
+	} else {
+		t.CurrentTokenNo++ // move forward once
 	}
-	token = t.GetCurrentToken() // todo replace with getCurrentToken method
-	return token
+	return t.GetCurrentToken()
 }
 func (t *TokenGen) GetCurrentToken() Token {
-	if t.CurrentLine >= len(t.Lines) || t.CurrentLine < 0 {
-		return Token{}
-	}
-	return Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo]
+	return t.Tokens[t.CurrentTokenNo]
 }
 func (t *TokenGen) GetRemainingToken() []Token {
 	tokensLeft := Tokenize(t.Lines[t.CurrentLine])[t.CurrentTokenNo+1:]
