@@ -2,40 +2,145 @@ package main
 
 import (
 	"fmt"
-	"reflect"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/MikeyA-yo/ay-go/parser"
 )
 
+const VERSION = "1.0.0"
+
+const AY_FancyName = `
+   █████╗ ██╗   ██╗
+  ██╔══██╗╚██╗ ██╔╝
+  ███████║ ╚████╔╝ 
+  ██╔══██║  ╚██╔╝  
+  ██║  ██║   ██║   
+  ╚═╝  ╚═╝   ╚═╝   
+`
+
+var welcome = fmt.Sprintf(`%s
+AY Programming Language Compiler v%s
+
+A modern, expressive programming language that compiles to JavaScript.
+Features: Variables (l), Functions (f), Comments, Control Flow, Async Operations, and more!
+
+Usage: ayc <filename>
+Example: ayc myprogram.ay
+
+Visit: https://github.com/MikeyA-yo/ay-go
+`, AY_FancyName, VERSION)
+
 func main() {
-	tg := parser.NewTokenGen("l b = 12\nl a = 'Heyy'")
-	fmt.Println(tg.GetCurrentToken())
-	tg.Next()
-	fmt.Println(tg.GetCurrentToken())
-	pp := parser.NewParser("l b = 12-2\nl a = 'Heyy', ' yo'")
-	pp.Start()
-	for _, v := range pp.Nodes {
-		PrintNonNilFields(v.Initializer)
+	// Check if filename is provided
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, welcome)
+		fmt.Fprintln(os.Stderr, "⚠️  No filename provided")
+		os.Exit(1)
 	}
-	// fmt.Println(tg.Peek(4), tg.GetRemainingToken())
-}
-func PrintNonNilFields(data interface{}) {
-	v := reflect.ValueOf(data).Elem()
-	t := v.Type()
 
-	fmt.Println("Non-nil fields:")
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldName := t.Field(i).Name
+	fileName := os.Args[1]
 
-		// Check if field is nil (for pointers, slices, maps, and interfaces)
-		if field.Kind() == reflect.Ptr || field.Kind() == reflect.Slice || field.Kind() == reflect.Map || field.Kind() == reflect.Interface {
-			if field.IsNil() {
-				continue
-			}
+	// Get current working directory and construct file path
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	filePath := filepath.Join(cwd, fileName)
+
+	// Read the source file
+	fileText, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", fileName, err)
+		os.Exit(1)
+	}
+
+	// Check file extension
+	fileNameParts := strings.Split(fileName, ".")
+	if len(fileNameParts) < 2 || fileNameParts[len(fileNameParts)-1] != "ay" {
+		fmt.Fprintln(os.Stderr, welcome)
+		fmt.Fprintln(os.Stderr, "⚠️  Invalid file extension. Please use .ay files only.")
+		os.Exit(1)
+	}
+
+	// Get executable directory for reading function files
+	execPath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting executable path: %v\n", err)
+		os.Exit(1)
+	}
+	execDir := filepath.Dir(execPath)
+	functionsDir := filepath.Join(execDir, "functions")
+
+	// Read function files (with error handling if files don't exist)
+	arrF := readFunctionFile(filepath.Join(functionsDir, "arr.js"))
+	mathF := readFunctionFile(filepath.Join(functionsDir, "mth.js"))
+	stringF := readFunctionFile(filepath.Join(functionsDir, "string.js"))
+	printF := readFunctionFile(filepath.Join(functionsDir, "print.js"))
+	fsF := readFunctionFile(filepath.Join(functionsDir, "fs.js"))
+	dateF := readFunctionFile(filepath.Join(functionsDir, "date.js"))
+	timeF := readFunctionFile(filepath.Join(functionsDir, "timer.js"))
+	httpF := readFunctionFile(filepath.Join(functionsDir, "http.js"))
+
+	// Parse the source code
+	p := parser.NewParser(string(fileText))
+	p.Start()
+
+	// Check for parsing errors
+	if len(p.Errors) > 0 {
+		fmt.Fprintf(os.Stderr, "%s Error encountered\nError compiling %s\n\n", AY_FancyName, fileName)
+		fmt.Fprintln(os.Stderr, "Errors:")
+		for _, error := range p.Errors {
+			fmt.Fprintln(os.Stderr, error)
 		}
-
-		// Print the field name and value
-		fmt.Printf("%s: %v\n", fieldName, field.Interface())
+		os.Exit(1)
 	}
+
+	// Compile AST to JavaScript
+	compiled := parser.CompileAST(p.Nodes)
+
+	// Generate output with function libraries
+	output := fmt.Sprintf(`
+%s
+%s
+%s
+%s
+%s
+%s
+%s
+%s
+%s
+`, arrF, mathF, stringF, printF, fsF, dateF, timeF, compiled, httpF)
+
+	// Generate output filename
+	baseName := strings.Join(fileNameParts[:len(fileNameParts)-1], ".")
+	// Remove path from baseName if present
+	if strings.Contains(baseName, string(filepath.Separator)) {
+		baseName = filepath.Base(baseName)
+	}
+	outputFileName := baseName + ".js"
+
+	// Write output file
+	err = os.WriteFile(outputFileName, []byte(output), 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing output file %s: %v\n", outputFileName, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ Compiled %s to %s\n", fileName, outputFileName)
+	fmt.Printf("🚀 Run with: node %s\n", outputFileName)
+}
+
+// Helper function to read function files with error handling
+func readFunctionFile(filePath string) string {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		// Return empty string if function file doesn't exist
+		// You could also return a default implementation or log a warning
+		return fmt.Sprintf("// Function file %s not found\n", filepath.Base(filePath))
+	}
+	return string(content)
 }
