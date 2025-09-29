@@ -34,7 +34,7 @@ var timeF string
 //go:embed functions/http.js
 var httpF string
 
-const VERSION = "1.0.1"
+const VERSION = "1.0.3"
 
 const AY_FancyName = `
    █████╗ ██╗   ██╗
