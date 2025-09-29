@@ -258,7 +258,10 @@ func Tokenize(line string) []Token {
 					} else if (currentToken == "=" && char == "=") || (currentToken == "!" && char == "=") ||
 						(currentToken == "<" && char == "=") || (currentToken == ">" && char == "=") ||
 						(currentToken == "&" && char == "&") || (currentToken == "|" && char == "|") ||
-						(currentToken == "+" && char == "+") || (currentToken == "-" && char == "-") {
+						(currentToken == "+" && char == "+") || (currentToken == "-" && char == "-") ||
+						(currentToken == "+" && char == "=") || (currentToken == "-" && char == "=") ||
+						(currentToken == "*" && char == "=") || (currentToken == "/" && char == "=") ||
+						(currentToken == "%" && char == "=") {
 						currentToken += char
 						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
 						currentToken = ""
@@ -428,9 +431,9 @@ func (t *TokenGen) GetCurrentToken() Token {
 	return t.Tokens[t.CurrentTokenNo]
 }
 
-// GetCurrentLineNumber returns the current line number (1-based index)
+// GetCurrentLineNumber returns the current line number (line is already1-based index)
 func (t *TokenGen) GetCurrentLineNumber() int {
-	return t.Tokens[t.CurrentTokenNo].Line + 1
+	return t.Tokens[t.CurrentTokenNo].Line
 }
 
 // GetCurrentColNumber returns the current column number (1-based index)

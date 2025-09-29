@@ -491,7 +491,7 @@ func (p *Parser) parseExpression() *ASTNode {
 // isBinaryOperator checks if current token is a binary operator
 func (p *Parser) isBinaryOperator() bool {
 	tk := p.tokenizer.GetCurrentToken()
-	binaryOps := []string{"+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "="}
+	binaryOps := []string{"+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">=", "&&", "||", "=", "+=", "-=", "*=", "/=", "%="}
 	for _, op := range binaryOps {
 		if tk.Value == op {
 			return true
