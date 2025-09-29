@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -66,14 +67,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get executable directory for reading function files
-	execPath, err := os.Executable()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting executable path: %v\n", err)
-		os.Exit(1)
-	}
-	execDir := filepath.Dir(execPath)
-	functionsDir := filepath.Join(execDir, "functions")
+	// Get functions directory relative to current working directory
+	functionsDir := filepath.Join(cwd, "functions")
 
 	// Read function files (with error handling if files don't exist)
 	arrF := readFunctionFile(filepath.Join(functionsDir, "arr.js"))
@@ -86,11 +81,32 @@ func main() {
 	httpF := readFunctionFile(filepath.Join(functionsDir, "http.js"))
 
 	// Parse the source code
+	fmt.Printf("=== Starting Parser ===\n")
 	p := parser.NewParser(string(fileText))
+	fmt.Printf("=== Calling Start() ===\n")
 	p.Start()
+	fmt.Printf("=== Parser Finished ===\n")
+
+	// Debug: Print AST structure as JSON
+	fmt.Printf("\n=== AST DEBUG (JSON) ===\n")
+	astJson, err := json.MarshalIndent(p.Nodes, "", "  ")
+	if err != nil {
+		fmt.Printf("Error marshaling AST to JSON: %v\n", err)
+		// Fallback to simple debug
+		for i, node := range p.Nodes {
+			fmt.Printf("Node %d: Type=%d, Value='%s', Identifier='%s'\n", i, node.Type, node.Value, node.Identifier)
+		}
+	} else {
+		fmt.Printf("%s\n", string(astJson))
+	}
+	fmt.Printf("=== END AST DEBUG ===\n\n")
 
 	// Check for parsing errors
 	if len(p.Errors) > 0 {
+		fmt.Printf("Found %d parsing errors:\n", len(p.Errors))
+		for _, error := range p.Errors {
+			fmt.Printf("Error: %s\n", error)
+		}
 		fmt.Fprintf(os.Stderr, "%s Error encountered\nError compiling %s\n\n", AY_FancyName, fileName)
 		fmt.Fprintln(os.Stderr, "Errors:")
 		for _, error := range p.Errors {

@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"regexp"
 	"slices"
@@ -22,7 +24,6 @@ var Keywords = []string{
 	"do",
 	"imp@",
 	"exp@",
-	"print",
 	"from",
 	"false",
 	"true",
@@ -45,6 +46,49 @@ var Keywords = []string{
 	"void",
 	"with",
 	"yield",
+}
+var Tks = map[string]string{
+	"lParen":    "(",
+	"rParen":    ")",
+	"dot":       ".",
+	"comma":     ",",
+	"dot3":      "...",
+	"colon":     ":",
+	"semi":      ";",
+	"lBrace":    "{",
+	"rBrace":    "}",
+	"lBrack":    "[",
+	"rBrack":    "]",
+	"assign":    "=",
+	"add":       "+",
+	"sub":       "-",
+	"div":       "/",
+	"mul":       "*",
+	"rem":       "%",
+	"shL":       "<<",
+	"shR":       ">>",
+	"grT":       ">",
+	"lsT":       "<",
+	"l":         "l",
+	"or":        "|",
+	"oror":      "||",
+	"andand":    "&&",
+	"not":       "!",
+	"nullC":     "??",
+	"equality":  "==",
+	"inEqualty": "!=",
+	"subEql":    "-=",
+	"addEql":    "+=",
+	"mulEql":    "*=",
+	"divEql":    "/=",
+	"inc":       "++",
+	"dec":       "--",
+	"exp":       "**",
+	"ororEql":   "||=",
+	"andandEql": "&&=",
+	"grTEql":    ">=",
+	"lsTEql":    "<=",
+	"pow":       "^",
 }
 
 func IsAllowedKeyAsVal(key string) bool {
@@ -95,16 +139,19 @@ func Tokenize(line string) []Token {
 
 	for i := 0; i < len(line); i++ {
 		char := string(line[i])
-		nextChar := string(line[i+1])
+		var nextChar string
+		if i+1 < len(line) {
+			nextChar = string(line[i+1])
+		}
 
 		// multi line comment start
-		if char == "/" && nextChar == "*" && currentType != SingleLineComment && !sOpen {
+		if i+1 < len(line) && char == "/" && nextChar == "*" && currentType != SingleLineComment && !sOpen {
 			currentType = MultiLineComment
 			currentToken = "/*"
 			continue
 
 		}
-		if char == "*" && nextChar == "/" && currentType == MultiLineComment && !sOpen {
+		if i+1 < len(line) && char == "*" && nextChar == "/" && currentType == MultiLineComment && !sOpen {
 			currentToken += "*/"
 			tokens = append(tokens, Token{currentType, currentToken, 0, 0})
 			i++
@@ -114,7 +161,7 @@ func Tokenize(line string) []Token {
 		}
 
 		// New lines
-		if (char == "\r" && nextChar == "\n") && currentType != MultiLineComment {
+		if i+1 < len(line) && (char == "\r" && nextChar == "\n") && currentType != MultiLineComment {
 			if currentType == SingleLineComment {
 				tokens = append(tokens, Token{currentType, currentToken, 0, 0})
 			}
@@ -138,17 +185,21 @@ func Tokenize(line string) []Token {
 		if (char == string('"') || char == "'") && currentType != SingleLineComment && currentType != MultiLineComment {
 			qChar = char
 			if sOpen {
-				if string(currentToken[0]) == qChar {
+				// extra validation to make sure it's the proper end to the string
+				if len(currentToken) > 0 && string(currentToken[0]) == qChar {
 					currentToken += qChar
-					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					// Remove quotes from the final token value
+					stringValue := currentToken[1 : len(currentToken)-1] // Remove first and last char (quotes)
+					tokens = append(tokens, Token{currentType, stringValue, 0, 0})
 					// cleanup
 					currentToken = ""
 					sOpen = false
 					currentType = Identifier
 				}
 			} else {
+				currentType = StringLiteral
 				sOpen = true
-				currentToken = qChar
+				currentToken = char // Start with the opening quote
 			}
 		}
 
@@ -172,7 +223,7 @@ func Tokenize(line string) []Token {
 				currentToken = char
 			}
 			//checks if it's the last character or not, passes if not last char
-			if len(line)-1 >= i+1 {
+			if i+1 < len(line) {
 				if !testRegex(`[a-zA-Z_@0-9]`, string(line[i+1])) {
 					if isKeyword(currentToken) {
 						tokens = append(tokens, Token{Keyword, currentToken, 0, 0})
@@ -191,7 +242,7 @@ func Tokenize(line string) []Token {
 				currentToken = char
 			}
 
-			if len(line)-1 >= i+1 {
+			if i+1 < len(line) {
 				if !testRegex(`\s`, string(line[i+1])) {
 					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
 					currentToken = ""
@@ -221,6 +272,11 @@ func Tokenize(line string) []Token {
 					if (currentToken == ">>" || currentToken == "<<") && (char == ">" || char == "<") {
 						currentToken += char
 						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = ""
+					} else {
+						// For 2-character operators like <=, >=, ==, !=, etc., push the token and start new one
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+						currentToken = char
 					}
 				default:
 					tokens = append(tokens, Token{Unknown, currentToken, 0, 0})
@@ -230,9 +286,11 @@ func Tokenize(line string) []Token {
 				currentToken = char
 			}
 
-			if len(line)-1 >= i+1 && currentType != SingleLineComment && currentType != MultiLineComment {
+			if i+1 < len(line) && currentType != SingleLineComment && currentType != MultiLineComment {
 				if !testRegex(`[+*/%=<>&|!?^-]`, string(line[i+1])) {
-					tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					if currentToken != "" {
+						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
+					}
 					currentToken = ""
 				}
 			}
@@ -241,7 +299,7 @@ func Tokenize(line string) []Token {
 			if currentType == Identifier {
 				currentToken += char
 				// check if next char would end the identifier
-				if len(line)-1 >= i+1 {
+				if i+1 < len(line) {
 					if !testRegex(`[a-zA-Z_@0-9]`, nextChar) {
 						tokens = append(tokens, Token{Identifier, currentToken, 0, 0})
 						currentToken = ""
@@ -256,7 +314,7 @@ func Tokenize(line string) []Token {
 				} else {
 					currentToken = char
 				}
-				if len(line)-1 >= i+1 {
+				if i+1 < len(line) {
 					if !testRegex(`\d`, nextChar) && nextChar != "." {
 						tokens = append(tokens, Token{currentType, currentToken, 0, 0})
 						currentToken = ""
@@ -287,9 +345,9 @@ func Tokenize(line string) []Token {
 	tokens = append(tokens, Token{EOF, "", 0, 0})
 	lineNo, colNo := 1, 1
 	strSplit := regexp.MustCompile(`\r\n|\n`)
-	for _, token := range tokens {
-		token.Line = lineNo
-		token.Col = colNo
+	for i, token := range tokens {
+		tokens[i].Line = lineNo
+		tokens[i].Col = colNo
 
 		// Handle multi-line comments and strings that contain newlines
 		if strings.Contains(token.Value, "\n") || strings.Contains(token.Value, "\r\n") {
@@ -316,6 +374,14 @@ func Tokenize(line string) []Token {
 		}
 	}
 
+	for _, token := range filteredTokens {
+		jsonToken, err := json.Marshal(token)
+		if err != nil {
+			fmt.Println("Error marshaling token:", err)
+			continue
+		}
+		fmt.Println(string(jsonToken))
+	}
 	return filteredTokens
 }
 
@@ -337,7 +403,7 @@ func NewTokenGen(file string) *TokenGen {
 	return &TokenGen{Lines: lines, CurrentLine: 0, CurrentTokenNo: 0, Tokens: Tokenize(file)}
 }
 func (t *TokenGen) Next() {
-	if t.Tokens[t.CurrentTokenNo].Type != EOF {
+	if t.CurrentTokenNo < len(t.Tokens)-1 && t.Tokens[t.CurrentTokenNo].Type != EOF {
 		t.CurrentTokenNo++
 	}
 }
@@ -366,6 +432,9 @@ func (t *TokenGen) Skip(steps int) Token {
 
 // Get current token
 func (t *TokenGen) GetCurrentToken() Token {
+	if t.CurrentTokenNo >= len(t.Tokens) {
+		return Token{Type: EOF, Value: "", Line: 0, Col: 0}
+	}
 	return t.Tokens[t.CurrentTokenNo]
 }
 

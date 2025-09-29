@@ -1,3 +1,5 @@
 .env
 *.exe
 .ign
+context/
+test*.*

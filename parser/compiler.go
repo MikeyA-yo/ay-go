@@ -19,7 +19,13 @@ func compileNode(node ASTNode) string {
 		return ""
 	}
 
+	// Debug logging
+	// fmt.Printf("[COMPILE] Node Type: %d, Value: '%s', Identifier: '%s'\n", node.Type, node.Value, node.Identifier)
+
 	switch node.Type {
+	case DefDecl:
+		// Define statements are preprocessor directives, don't output them
+		return ""
 	case VariableDeclaration:
 		if node.Initializer != nil {
 			return "let " + node.Identifier + " = " + compileNode(*node.Initializer) + ";"
@@ -27,6 +33,10 @@ func compileNode(node ASTNode) string {
 			return "let " + node.Identifier + ";"
 		}
 	case LiteralD:
+		// Check if it's a string literal (contains quotes) and wrap properly
+		if strings.HasPrefix(node.Value, "\"") || strings.HasPrefix(node.Value, "'") {
+			return "\"" + strings.Trim(node.Value, "\"'") + "\""
+		}
 		return node.Value
 	case FunctionDeclaration:
 		var paramStrs []string
@@ -177,7 +187,7 @@ func compileLoop(node ASTNode) string {
 		for _, stmt := range node.Body {
 			bodyStrs = append(bodyStrs, compileNode(stmt))
 		}
-		return "while " + test + " {\n" + strings.Join(bodyStrs, "\n") + "\n}"
+		return "while (" + test + ") {\n" + strings.Join(bodyStrs, "\n") + "\n}"
 	}
 
 	return ""
