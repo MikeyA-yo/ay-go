@@ -134,6 +134,13 @@ func (p *Parser) expectTokenVal(v string) bool {
 	return tk.Value == v || resolvedValue == v
 }
 
+// consumeOptionalSemicolon consumes a semicolon if present (semicolons are optional in AY)
+func (p *Parser) consumeOptionalSemicolon() {
+	if p.expectTokenVal(";") {
+		p.consume()
+	}
+}
+
 // Start begins parsing the token stream
 func (p *Parser) Start() {
 	for p.tokenizer.GetCurrentToken().Type != EOF {
@@ -207,15 +214,30 @@ func (p *Parser) parseStatement() *ASTNode {
 	if p.expectToken(Identifier) {
 		// Check if it's a function call
 		if p.expectPeekVal("(") {
-			return p.parseCallExpr()
+			node := p.parseCallExpr()
+			if node != nil {
+				// Consume optional semicolon after function call statement
+				p.consumeOptionalSemicolon()
+			}
+			return node
 		}
 		// Check if it's an assignment or other expression
-		return p.parseExpression()
+		node := p.parseExpression()
+		if node != nil {
+			// Consume optional semicolon after expression statement
+			p.consumeOptionalSemicolon()
+		}
+		return node
+	}
+	// Skip semicolons at statement level (they're optional in AY)
+	if p.expectTokenVal(";") {
+		p.consume() // consume the semicolon
+		return nil  // return nil since semicolon is not a statement
 	}
 
-	// Skip unknown tokens with a warning
+	// Skip unknown tokens with error
 	if token.Type != EOF {
-		fmt.Printf("[DEBUG] Skipping unknown statement token: %+v\n", token)
+		p.addError(fmt.Sprintf("Unexpected token: %s", token.Value))
 		p.tokenizer.Next()
 	}
 
@@ -265,6 +287,16 @@ func (p *Parser) parseDefine() *ASTNode {
 
 // parseVariableDeclaration parses variable declarations
 func (p *Parser) parseVariableDeclaration() *ASTNode {
+	node := p.parseVariableDeclarationNoSemicolon()
+	if node != nil {
+		// Consume optional semicolon
+		p.consumeOptionalSemicolon()
+	}
+	return node
+}
+
+// parseVariableDeclarationNoSemicolon parses variable declarations without consuming semicolon
+func (p *Parser) parseVariableDeclarationNoSemicolon() *ASTNode {
 	p.consume() // consume 'l'
 
 	if !p.expectToken(Identifier) {
@@ -292,9 +324,7 @@ func (p *Parser) parseVariableDeclaration() *ASTNode {
 		Identifier:  identifier,
 		Initializer: initializer,
 	}
-}
-
-// parseFunction parses function declarations
+} // parseFunction parses function declarations
 func (p *Parser) parseFunction() *ASTNode {
 	p.consume() // consume 'f'
 
@@ -366,10 +396,15 @@ func (p *Parser) parseReturn() *ASTNode {
 		initializer = p.parseExpression()
 	}
 
-	return &ASTNode{
+	node := &ASTNode{
 		Type:        Return,
 		Initializer: initializer,
 	}
+
+	// Consume optional semicolon
+	p.consumeOptionalSemicolon()
+
+	return node
 }
 
 // parseBlockStatement parses block statements
@@ -755,7 +790,14 @@ func (p *Parser) parseLoop() *ASTNode {
 
 	if loopType == "for" {
 		// For loop: for (init; test; upgrade)
-		initializer := p.parseStatement()
+		// Parse initializer - this is typically a variable declaration
+		var initializer *ASTNode
+		if p.expectTokenVal("l") {
+			initializer = p.parseVariableDeclarationNoSemicolon()
+		} else {
+			// Could be an expression or assignment
+			initializer = p.parseExpression()
+		}
 
 		if !p.expectTokenVal(";") {
 			p.addError("Expected ';' after for loop initializer")

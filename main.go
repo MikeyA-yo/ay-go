@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,26 +79,11 @@ func main() {
 	timeF := readFunctionFile(filepath.Join(functionsDir, "timer.js"))
 	httpF := readFunctionFile(filepath.Join(functionsDir, "http.js"))
 
-	// Parse the source code
-	fmt.Printf("=== Starting Parser ===\n")
 	p := parser.NewParser(string(fileText))
-	fmt.Printf("=== Calling Start() ===\n")
+
 	p.Start()
-	fmt.Printf("=== Parser Finished ===\n")
 
 	// Debug: Print AST structure as JSON
-	fmt.Printf("\n=== AST DEBUG (JSON) ===\n")
-	astJson, err := json.MarshalIndent(p.Nodes, "", "  ")
-	if err != nil {
-		fmt.Printf("Error marshaling AST to JSON: %v\n", err)
-		// Fallback to simple debug
-		for i, node := range p.Nodes {
-			fmt.Printf("Node %d: Type=%d, Value='%s', Identifier='%s'\n", i, node.Type, node.Value, node.Identifier)
-		}
-	} else {
-		fmt.Printf("%s\n", string(astJson))
-	}
-	fmt.Printf("=== END AST DEBUG ===\n\n")
 
 	// Check for parsing errors
 	if len(p.Errors) > 0 {

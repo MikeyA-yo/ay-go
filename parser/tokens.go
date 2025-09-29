@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"regexp"
 	"slices"
@@ -374,14 +372,6 @@ func Tokenize(line string) []Token {
 		}
 	}
 
-	for _, token := range filteredTokens {
-		jsonToken, err := json.Marshal(token)
-		if err != nil {
-			fmt.Println("Error marshaling token:", err)
-			continue
-		}
-		fmt.Println(string(jsonToken))
-	}
 	return filteredTokens
 }
 
