@@ -93,7 +93,8 @@ func compileNode(node ASTNode) string {
 		if node.InfixOp != "" && node.Identifier != "" {
 			return node.InfixOp + " " + node.Identifier + ";"
 		}
-		if len(node.Elements) > 0 {
+		if node.Type == ArrayExpr {
+			// Always output an array, even if it's empty
 			var elemStrs []string
 			for _, elem := range node.Elements {
 				elemStrs = append(elemStrs, compileNode(elem))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,7 +10,31 @@ import (
 	"github.com/MikeyA-yo/ay-go/parser"
 )
 
-const VERSION = "1.0.0"
+//go:embed functions/arr.js
+var arrF string
+
+//go:embed functions/mth.js
+var mathF string
+
+//go:embed functions/string.js
+var stringF string
+
+//go:embed functions/print.js
+var printF string
+
+//go:embed functions/fs.js
+var fsF string
+
+//go:embed functions/date.js
+var dateF string
+
+//go:embed functions/timer.js
+var timeF string
+
+//go:embed functions/http.js
+var httpF string
+
+const VERSION = "1.0.1"
 
 const AY_FancyName = `
    █████╗ ██╗   ██╗
@@ -26,8 +51,8 @@ AY Programming Language Compiler v%s
 A modern, expressive programming language that compiles to JavaScript.
 Features: Variables (l), Functions (f), Comments, Control Flow, Async Operations, and more!
 
-Usage: ayc <filename>
-Example: ayc myprogram.ay
+Usage: ay-go <filename>
+Example: ay-go myprogram.ay
 
 Visit: https://github.com/MikeyA-yo/ay-go
 `, AY_FancyName, VERSION)
@@ -66,24 +91,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get functions directory relative to current working directory
-	functionsDir := filepath.Join(cwd, "functions")
-
-	// Read function files (with error handling if files don't exist)
-	arrF := readFunctionFile(filepath.Join(functionsDir, "arr.js"))
-	mathF := readFunctionFile(filepath.Join(functionsDir, "mth.js"))
-	stringF := readFunctionFile(filepath.Join(functionsDir, "string.js"))
-	printF := readFunctionFile(filepath.Join(functionsDir, "print.js"))
-	fsF := readFunctionFile(filepath.Join(functionsDir, "fs.js"))
-	dateF := readFunctionFile(filepath.Join(functionsDir, "date.js"))
-	timeF := readFunctionFile(filepath.Join(functionsDir, "timer.js"))
-	httpF := readFunctionFile(filepath.Join(functionsDir, "http.js"))
-
 	p := parser.NewParser(string(fileText))
-
 	p.Start()
-
-	// Debug: Print AST structure as JSON
 
 	// Check for parsing errors
 	if len(p.Errors) > 0 {
@@ -102,7 +111,7 @@ func main() {
 	// Compile AST to JavaScript
 	compiled := parser.CompileAST(p.Nodes)
 
-	// Generate output with function libraries
+	// Generate output with embedded function libraries
 	output := fmt.Sprintf(`
 %s
 %s
@@ -117,7 +126,6 @@ func main() {
 
 	// Generate output filename
 	baseName := strings.Join(fileNameParts[:len(fileNameParts)-1], ".")
-	// Remove path from baseName if present
 	if strings.Contains(baseName, string(filepath.Separator)) {
 		baseName = filepath.Base(baseName)
 	}
@@ -132,15 +140,4 @@ func main() {
 
 	fmt.Printf("✅ Compiled %s to %s\n", fileName, outputFileName)
 	fmt.Printf("🚀 Run with: node %s\n", outputFileName)
-}
-
-// Helper function to read function files with error handling
-func readFunctionFile(filePath string) string {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		// Return empty string if function file doesn't exist
-		// You could also return a default implementation or log a warning
-		return fmt.Sprintf("// Function file %s not found\n", filepath.Base(filePath))
-	}
-	return string(content)
 }
